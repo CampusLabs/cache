@@ -66,9 +66,10 @@
     save: function (key, data) {
       this.all[key] = data;
       if (localStorage) {
-        while (true) {
-          try { return localStorage.setItem(key, JSON.stringify(data)); }
-          catch (er) { if (!this.clearLru()) throw er; }
+        try { localStorage.setItem(key, JSON.stringify(data)); }
+        catch (er) {
+          if (!this.clearLru()) throw er;
+          this.save(key, data);
         }
       }
       return this;
