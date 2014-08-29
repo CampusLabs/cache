@@ -121,8 +121,8 @@
     // Don't let stale data linger around forever and eat up localStorage space.
     clean: function (duration) {
       if (!duration) duration = this.defaultDuration;
-      if (this.get('purged', duration)) return;
-      this.purge().set('purged', true, duration);
+      if (this.get('_lastClean', duration)) return;
+      this.purge().set('_lastClean', true, duration);
     }
   };
 
