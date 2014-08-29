@@ -5,7 +5,16 @@
 })(this, function () {
   'use strict';
 
-  var localStorage = typeof window === 'undefined' ? null : window.localStorage;
+  var ENABLED = true;
+  var TEST_STRING = '__localStorageTest';
+
+  try {
+    localStorage.setItem(TEST_STRING, TEST_STRING);
+    if (localStorage.getItem(TEST_STRING) !== TEST_STRING) ENABLED = false;
+    localStorage.removeItem(TEST_STRING);
+  } catch (er) {
+    ENABLED = false;
+  }
 
   // data = {v = value, t = creation time, u = last used time, d = duration}
   var Cache = function (options) {
@@ -13,11 +22,12 @@
 
     // Keep a copy of the cache in memory for faster lookups.
     var prefix = this.prefix;
-    this.all = Object.keys(localStorage || {}).reduce(function (all, key) {
-      if (key.indexOf(prefix) !== 0) return all;
-      all[key] = JSON.parse(localStorage.getItem(key));
-      return all;
-    }, {});
+    this.all = Object.keys(ENABLED ? localStorage : {})
+      .reduce(function (all, key) {
+        if (key.indexOf(prefix) !== 0) return all;
+        all[key] = JSON.parse(localStorage.getItem(key));
+        return all;
+      }, {});
   };
 
   var proto = {
@@ -65,11 +75,13 @@
     // Persist to localStorage.
     save: function (key, data) {
       this.all[key] = data;
-      if (localStorage) {
-        try { localStorage.setItem(key, JSON.stringify(data)); }
-        catch (er) {
-          if (!this.clearLru()) throw er;
-          this.save(key, data);
+      if (ENABLED) {
+        var raw = JSON.stringify(data);
+        while (true) {
+          try {
+            localStorage.setItem(key, raw);
+            break;
+          } catch (er) { if (!this.clearLru()) throw er; }
         }
       }
       return this;
@@ -89,7 +101,7 @@
 
     removeNormalized: function (key) {
       delete this.all[key];
-      if (localStorage) localStorage.removeItem(key);
+      if (ENABLED) localStorage.removeItem(key);
       return this;
     },
 
@@ -105,7 +117,8 @@
 
     // Clear all entries from storage.
     clear: function () {
-      Object.keys(this.all).forEach(this.removeNormalized);
+      Object.keys(this.all).forEach(this.removeNormalized, this);
+      return this;
     },
 
     // Clear the oldest key.
@@ -121,8 +134,8 @@
     // Don't let stale data linger around forever and eat up localStorage space.
     clean: function (duration) {
       if (!duration) duration = this.defaultDuration;
-      if (this.get('_lastClean', duration)) return;
-      this.purge().set('_lastClean', true, duration);
+      if (this.get('__lastClean', duration)) return;
+      return this.purge().set('__lastClean', true, duration);
     }
   };
 
